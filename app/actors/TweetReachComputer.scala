@@ -1,11 +1,11 @@
 package actors
 
-import akka.actor.{Actor, ActorLogging, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 
 /**
   * Created by david on 17/02/20.
   */
-class TweetReachComputer extends Actor with ActorLogging {
+class TweetReachComputer(userFollowersCounter: ActorRef, storage: ActorRef) extends Actor with ActorLogging {
 
   def receive = {
     case message => // do nothing
@@ -13,5 +13,6 @@ class TweetReachComputer extends Actor with ActorLogging {
 }
 
 object TweetReachComputer {
-  def props = Props[TweetReachComputer]
+  def props(userFollowersCounter: ActorRef, storage: ActorRef) =
+    Props(classOf[UserFollowersCounter], userFollowersCounter, storage)
 }

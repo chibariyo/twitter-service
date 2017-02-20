@@ -1,11 +1,11 @@
 package actors
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.actor.{Actor, ActorLogging, Props}
 
 /**
   * Created by david on 17/02/20.
   */
-class UserFollowersCounter(userFollowersCounter: ActorRef, storage: ActorRef) extends Actor with ActorLogging {
+class UserFollowersCounter extends Actor with ActorLogging {
 
   def receive = {
     case message => // do nothing
@@ -13,6 +13,5 @@ class UserFollowersCounter(userFollowersCounter: ActorRef, storage: ActorRef) ex
 }
 
 object UserFollowersCounter {
-  def props(userFollowersCounter: ActorRef, storage: ActorRef) =
-    Props(classOf[UserFollowersCounter], userFollowersCounter, storage)
+  def props = Props[UserFollowersCounter]
 }
