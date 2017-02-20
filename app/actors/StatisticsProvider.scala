@@ -1,9 +1,14 @@
 package actors
 
+import javax.naming.ServiceUnavailableException
+
 import akka.actor.SupervisorStrategy.{Escalate, Restart}
-import akka.actor.{Actor, ActorLogging, ActorRef, OneForOneStrategy, Props, SupervisorStrategy}
+import akka.actor.{Actor, ActorLogging, ActorRef, OneForOneStrategy, Props, SupervisorStrategy, Terminated}
 import reactivemongo.core.errors.ConnectionException
+
 import scala.concurrent.duration._
+import messages._
+import StatisticsProvider._
 
 /**
   * Created by david on 17/02/17.
@@ -16,18 +21,11 @@ class StatisticsProvider extends Actor with ActorLogging {
 
   override def preStart(): Unit = {
     log.info("Starting StatisticsProvider")
-    followersCounter = context.actorOf(
-      UserFollowersCounter.props,
-      name = "userFollowersCounter"
-    )
-    storage = context.actorOf(
-      Storage.props,
-      name = "storage"
-    )
-    reachComputer = context.actorOf(
-      TweetReachComputer.props(followersCounter, storage),
-      name = "tweetReachComputer"
-    )
+    followersCounter = context.actorOf(UserFollowersCounter.props, name = "userFollowersCounter")
+    storage = context.actorOf(Storage.props, name = "storage")
+    reachComputer = context.actorOf(TweetReachComputer.props(followersCounter, storage), name = "tweetReachComputer")
+
+    context.watch(storage)
   }
 
   override def supervisorStrategy: SupervisorStrategy =
@@ -39,7 +37,19 @@ class StatisticsProvider extends Actor with ActorLogging {
     }
 
   def receive = {
-    case message => // do nothing
+    case reach: ComputeReach =>
+      reachComputer forward reach
+    case Terminated(terminatedStorageRef) =>
+      context.system.scheduler.scheduleOnce(1.minute, self, ReviveStorage)
+      context.become(storageUnavailable)
+  }
+
+  def storageUnavailable: Receive = {
+    case ComputeReach(_) =>
+      sender() ! ServiceUnavailable
+    case ReviveStorage =>
+      storage = context.actorOf(Storage.props, name = "storage")
+      context.unbecome()
   }
 
   override def unhandled(message: Any): Unit = {
@@ -52,4 +62,7 @@ class StatisticsProvider extends Actor with ActorLogging {
 
 object StatisticsProvider {
   def props = Props[StatisticsProvider]
+
+  case object ServiceUnavailable
+  case object ReviveStorage
 }
