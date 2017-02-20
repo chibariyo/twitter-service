@@ -7,6 +7,10 @@ import play.api.libs.oauth.OAuthCalculator
 import play.api.libs.ws.WS
 
 import scala.concurrent.Future
+import akka.pattern.pipe
+
+import scala.util.control.NonFatal
+
 
 /**
   * Created by david on 17/02/20.
@@ -18,14 +22,19 @@ class TweetReachComputer(userFollowersCounter: ActorRef, storage: ActorRef) exte
   var followerCountsByRetweet = Map.empty[FetchedRetweet, List[FollowerCount]]
 
   def receive = {
+
     case ComputeReach(tweetId) =>
-      fetchRetweets(tweetId, sender()).map { fetchedRetweets =>
+      val originalSender = sender()
+      fetchRetweets(tweetId, sender()).recover {
+        case NonFatal(t) =>
+          RetweetFetchingFailed(tweetId, t, originalSender)
+      } pipeTo self
+    case fetchedRetweets: FetchedRetweet =>
         followerCountsByRetweet =
           followerCountsByRetweet + (fetchedRetweets -> List.empty)
         fetchedRetweets.retweeters.foreach { rt =>
-          userFollowersCounter ! FetchFollowerCount(tweetId, rt)
+          userFollowersCounter ! FetchFollowerCount(fetchedRetweets.tweetId, rt)
         }
-      }
     case count @ FollowerCount(tweetId, _, _) =>
       log.info("Received followers count for tweet {}", tweetId)
       fetchedRetweetsFor(tweetId).foreach { fetchedRetweets =>
@@ -38,6 +47,7 @@ class TweetReachComputer(userFollowersCounter: ActorRef, storage: ActorRef) exte
   }
 
   case class FetchedRetweet(tweetId: BigInt, retweeters: List[BigInt], client: ActorRef)
+  case class RetweetFetchingFailed(tweetId: BigInt, cause: Throwable, client: ActorRef)
 
   def fetchedRetweetsFor(tweetId: BigInt) = followerCountsByRetweet.keys.find(_.tweetId == tweetId)
 
