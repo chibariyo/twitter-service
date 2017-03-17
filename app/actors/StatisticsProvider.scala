@@ -2,6 +2,7 @@ package actors
 
 import javax.naming.ServiceUnavailableException
 
+import akka.actor._
 import akka.actor.SupervisorStrategy.{Escalate, Restart}
 import akka.actor.{Actor, ActorLogging, ActorRef, OneForOneStrategy, Props, SupervisorStrategy, Terminated}
 import reactivemongo.core.errors.ConnectionException
@@ -18,6 +19,8 @@ class StatisticsProvider extends Actor with ActorLogging {
   var reachComputer: ActorRef = _
   var storage: ActorRef = _
   var followersCounter: ActorRef = _
+
+  implicit val ec = context.dispatcher
 
   override def preStart(): Unit = {
     log.info("Starting StatisticsProvider")
