@@ -10,6 +10,7 @@ import reactivemongo.core.errors.ConnectionException
 import scala.concurrent.duration._
 import messages._
 import StatisticsProvider._
+import org.joda.time.{DateTime, Interval}
 
 /**
   * Created by david on 17/02/17.
@@ -45,6 +46,17 @@ class StatisticsProvider extends Actor with ActorLogging {
     case Terminated(terminatedStorageRef) =>
       context.system.scheduler.scheduleOnce(1.minute, self, ReviveStorage)
       context.become(storageUnavailable)
+    case TwitterRateLimitReached(reset) =>
+      context.system.scheduler.scheduleOnce(
+        new Interval(DateTime.now, reset).toDurationMillis.millis,
+        self,
+        ResumeService)
+      context.become({
+        case reach @ ComputeReach(_) =>
+          sender() ! ServiceUnavailable
+        case ResumeService =>
+          context.unbecome()
+      })
   }
 
   def storageUnavailable: Receive = {
@@ -68,4 +80,5 @@ object StatisticsProvider {
 
   case object ServiceUnavailable
   case object ReviveStorage
+  case object ResumeService
 }
