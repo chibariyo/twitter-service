@@ -10,7 +10,7 @@ import com.google.inject.AbstractModule
   */
 class Actors @Inject()(system: ActorSystem) extends ApplicationActors {
   system.actorOf(
-    props = StatisticsProvider.props,
+    props = StatisticsProvider.props.withDispatcher("control-aware-dispatvcher"),
     name = "statisticsProvider"
   )
 }
